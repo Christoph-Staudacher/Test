@@ -1,0 +1,134 @@
+
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Netztyp-Karte (Dummy-Version)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css" />
+  <style>
+    #map { height: 100vh; width: 100%; }
+    #filter {
+      padding: 10px;
+      background: white;
+      box-shadow: 0 0 10px rgba(0,0,0,0.2);
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 1000;
+    }
+  </style>
+</head>
+<body>
+
+<div id="filter">
+  <label><input type="checkbox" class="netz-filter" value="TT" checked> TT-Netz</label><br>
+  <label><input type="checkbox" class="netz-filter" value="TN" checked> TN-Netz</label><br>
+  <label><input type="checkbox" class="netz-filter" value="Unbekannt" checked> Nicht vergeben</label>
+</div>
+
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
+<script>
+  const map = L.map('map').setView([51.1657, 10.4515], 6);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap-Mitwirkende'
+  }).addTo(map);
+
+  const daten = [
+    { plz: "10115", lat: 52.532, lng: 13.384, netztyp: "TT", order: "ORD-001", nb: "Netz A" },
+    { plz: "20095", lat: 53.551, lng: 10.001, netztyp: "TN", order: "ORD-002", nb: "Netz B" },
+    { plz: "70173", lat: 48.775, lng: 9.182, netztyp: "Unbekannt", order: "ORD-003", nb: "Netz C" },
+    { plz: "80331", lat: 48.137, lng: 11.575, netztyp: "TT", order: "ORD-004", nb: "Netz D" },
+    { plz: "50667", lat: 50.938, lng: 6.96, netztyp: "TN", order: "ORD-005", nb: "Netz E" }
+  ];
+
+  const farben = {
+    TT: "red",
+    TN: "green",
+    Unbekannt: "gray"
+  };
+
+  const aktuelleFilter = new Set(["TT", "TN", "Unbekannt"]);
+
+  const markerClusterGroup = L.markerClusterGroup({
+    iconCreateFunction: function(cluster) {
+      const markers = cluster.getAllChildMarkers();
+      const relevant = markers.filter(m => m.options.typ !== "Unbekannt");
+      const total = relevant.length;
+      const ttCount = relevant.filter(m => m.options.typ === "TT").length;
+      let color = "green";
+
+      if (total > 0) {
+        const ttAnteil = ttCount / total;
+        if (ttAnteil >= 0.9) color = "red";
+        else if (ttAnteil > 0) color = "orange";
+      }
+
+      return L.divIcon({
+        html: `<div style="background:${color}; border-radius:50%; color:white; padding:10px;">${cluster.getChildCount()}</div>`,
+        className: "custom-cluster",
+        iconSize: L.point(40, 40)
+      });
+    }
+  });
+
+  daten.forEach(d => {
+    const marker = L.circleMarker([d.lat, d.lng], {
+      radius: 8,
+      color: farben[d.netztyp],
+      fillColor: farben[d.netztyp],
+      fillOpacity: 0.8,
+      typ: d.netztyp
+    });
+
+    const popup = `
+      <strong>PLZ:</strong> ${d.plz}<br>
+      <strong>Ordernummer:</strong> ${d.order}<br>
+      <strong>Netzbetreiber:</strong> ${d.nb}<br>
+      <strong>Netzform:</strong> ${d.netztyp}
+    `;
+    marker.bindPopup(popup);
+    markerClusterGroup.addLayer(marker);
+  });
+
+  map.addLayer(markerClusterGroup);
+
+  // Filterfunktion
+  document.querySelectorAll('.netz-filter').forEach(cb => {
+    cb.addEventListener('change', () => {
+      aktuelleFilter.clear();
+      document.querySelectorAll('.netz-filter:checked').forEach(checked => {
+        aktuelleFilter.add(checked.value);
+      });
+
+      markerClusterGroup.clearLayers();
+      daten.forEach(d => {
+        if (aktuelleFilter.has(d.netztyp)) {
+          const marker = L.circleMarker([d.lat, d.lng], {
+            radius: 8,
+            color: farben[d.netztyp],
+            fillColor: farben[d.netztyp],
+            fillOpacity: 0.8,
+            typ: d.netztyp
+          });
+          const popup = `
+            <strong>PLZ:</strong> ${d.plz}<br>
+            <strong>Ordernummer:</strong> ${d.order}<br>
+            <strong>Netzbetreiber:</strong> ${d.nb}<br>
+            <strong>Netzform:</strong> ${d.netztyp}
+          `;
+          marker.bindPopup(popup);
+          markerClusterGroup.addLayer(marker);
+        }
+      });
+    });
+  });
+</script>
+</body>
+</html>
